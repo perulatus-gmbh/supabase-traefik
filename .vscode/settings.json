@@ -1,0 +1,11 @@
+{
+    "github.copilot.chat.scopeSelection": true,
+    "github.copilot.chat.codesearch.enabled": true,
+    "windowsaistudio.enableRemoteFine-tuningAndInference": true,
+    "github.copilot.selectedCompletionModel": "gpt-5-chat",
+    "azureResourceGroups.enableChatStandIn": true,
+    "azureResourceGroups.selectedSubscriptions": [
+        "perulatusai"
+    ],
+    "@azure.argTenant": "f802386d-dec0-45cb-b78d-b9544ba0f4b3"
+}

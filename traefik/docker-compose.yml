@@ -1,44 +1,66 @@
-version: '3.9'
+version: "3.9"
+
 services:
   traefik:
+    image: traefik:v3.5
     container_name: traefik
-    hostname: traefik
-    image: traefik:latest
-    ports:
-      - 8001:80
-      - 44301:443
-      - 8181:8080
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./traefik/:/etc/traefik/
-    networks:
-      - supabase # rename this to your custom docker network
-    
-#    labels:   # Only for Traefik, unless you use the fileConfig.yml file.
-#      traefik.http.routers.api.rule: Host(`traefik.domain.com`)    # Define the subdomain for the traefik dashboard.
-#      traefik.http.routers.api.entryPoints: https    # Set the Traefik entry point.
-#      traefik.http.routers.api.service: api@internal    # Enable Traefik API.
-#      traefik.enable: true   # Enable Traefik reverse proxy for the Traefik dashboard.
-    environment:
-      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
-      CLOUDFLARE_EMAIL: ${$CLOUDFLARE_EMAIL}
-      DOMAIN: ${DOMAIN}
     restart: unless-stopped
-    depends_on:
-      - dockersocket
-      
-  dockersocket:
-    container_name: dockersocket
-    image: tecnativa/docker-socket-proxy
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+    security_opt:
+      - no-new-privileges:true
+
     networks:
       - supabase
-    environment:
-      CONTAINERS: 1
-      POST: 0
-    privileged: true
-    restart: unless-stopped
+    ports:
+      - "8001:80"
+      - "44301:443"
+      - "8181:8080"
+    volumes:
+      - ./dynamic:/dynamic
+      - ./certs:/certs
+      - ./letsencrypt:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik/fileConfig.yml:/etc/traefik/fileConfig.yml
+
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=supabase"
+      - "--providers.docker.watch=true"
+      - "--providers.file.directory=/dynamic"
+      - "--providers.file.watch=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.websecure.http.tls=true"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=nico.tuban@perulatus.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--entrypoints.websecure.http.tls.certresolver=letsencrypt"
+      - "--api.dashboard=true"
+      - "--api.insecure=false"
+      - "--log.level=DEBUG"
+      - "--accesslog=true"
+      - "--entrypoints.metrics.address=:8082"
+      - "--metrics.prometheus=true"
+      - "--metrics.prometheus.entrypoint=metrics"
+      - "--metrics.prometheus.addrouterslabels=true"
+      - "--metrics.prometheus.addserviceslabels=true"
+      # - "--tracing.otel=true"
+      # - "--tracing.otel.grpcendpoint=otel-collector:4317"
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik-dashboard.rule=Host(`billing-supabase.germanywestcentral.cloudapp.azure.com`) && PathPrefix(`/`)"
+      - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.traefik-dashboard.service=api@internal"
+      - "traefik.http.routers.traefik-dashboard.tls=true"
+      - "traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.middlewares.strip-dashboard-prefix.stripPrefix.prefixes=/dashboard"
+      - 'traefik.http.middlewares.dashboard-auth.basicauth.users=admin:$$apr1$$Yi7ZeH0r$$S0KcRzTI3v2mOPguZuQS81'
+      - "traefik.http.routers.traefik-dashboard.middlewares=strip-dashboard-prefix@docker,dashboard-auth@docker"
+      - "traefik.http.routers.traefik-dashboard.observability.tracing=true"
 
 networks:
   supabase:

@@ -61,9 +61,3 @@ certificatesResolvers:
     acme:
       email: $CLOUDFLARE_EMAIL
       storage: /etc/traefik/acme.json
-      dnsChallenge:
-        provider: cloudflare
-        # Used to make sure the dns challenge is propagated to the rights dns servers
-        resolvers:
-          - "1.1.1.1:53"
-          - "1.0.0.1:53"
